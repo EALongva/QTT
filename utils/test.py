@@ -21,3 +21,4 @@ string_array = np.array(['one', 'two', 'three'])
 x = 2 # change to test git ssh
 y = 3 # change lol
 z = 4 # change change wooo
+pikk = 'balle' 
