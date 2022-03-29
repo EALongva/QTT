@@ -193,17 +193,17 @@ class QTT:
             # alternating evenly, temperature dependence in interaction strength parameter
             if (n+1)%2 == 1:
 
-                newPsi = Up_expansion @ Psi
+                newPsi = self.Up_expansion @ Psi
 
             else:
 
-                newPsi = Um_expansion @ Psi
+                newPsi = self.Um_expansion @ Psi
             
-            newpsi_s = measure(newPsi)
+            newpsi_s = self.measure(newPsi)
 
             # Hamiltonian time evolution
 
-            H_newpsi_s = H_expansion @ newpsi_s
+            H_newpsi_s = self.H_expansion @ newpsi_s
 
             if (n+1+skip)%skip == 0:
 
@@ -238,7 +238,7 @@ class QTT:
 
         if self.meas == 'x':
 
-            xp_meas = ( newPsi[0] + newPsi[1] ) * bas0 + ( newPsi[2] + newPsi[3] ) * bas1
+            xp_meas = ( Psi[0] + Psi[1] ) * bas0 + ( Psi[2] + Psi[3] ) * bas1
 
             prob_xp_meas = ( np.sqrt(0.5) * np.conj( xp_meas ).T ) @ ( np.sqrt(0.5) * xp_meas )
 
@@ -249,13 +249,13 @@ class QTT:
 
             else:
                 # corresponds to measuring the environment to be in |x->
-                xm_meas = ( newPsi[0] - newPsi[1] ) * bas0 + ( newPsi[2] - newPsi[3] ) * bas1
+                xm_meas = ( Psi[0] - Psi[1] ) * bas0 + ( Psi[2] - Psi[3] ) * bas1
                 norm = 1 / np.sqrt( np.conj( xm_meas ).T @ xm_meas )
                 psi_s = norm * xm_meas
 
         elif self.meas == 'y':
 
-            yp_meas = ( newPsi[0] - 1j*newPsi[1] ) * bas0 + ( newPsi[2] - 1j*newPsi[3] ) * bas1
+            yp_meas = ( Psi[0] - 1j*Psi[1] ) * bas0 + ( Psi[2] - 1j*Psi[3] ) * bas1
 
             prob_yp_meas = ( np.sqrt(0.5) * np.conj( yp_meas ).T ) @ ( np.sqrt(0.5) * yp_meas )
 
@@ -266,13 +266,13 @@ class QTT:
 
             else:
                 # corresponds to measuring the environment to be in |y->
-                ym_meas = ( newPsi[0] + 1j*newPsi[1] ) * bas0 + ( newPsi[2] + 1j*newPsi[3] ) * bas1
+                ym_meas = ( Psi[0] + 1j*Psi[1] ) * bas0 + ( Psi[2] + 1j*Psi[3] ) * bas1
                 norm = 1 / np.sqrt( np.conj( ym_meas ).T @ ym_meas )
                 psi_s = norm * ym_meas
 
         elif self.meas == 'z':
 
-            zp_meas = ( newPsi[0] + newPsi[2] ) * bas0
+            zp_meas = ( Psi[0] + Psi[2] ) * bas0
 
             prob_zp_meas = ( np.sqrt(0.5) * np.conj( zp_meas ).T ) @ ( np.sqrt(0.5) * zp_meas )
 
@@ -283,7 +283,7 @@ class QTT:
 
             else:
                 # corresponds to measuring the environment to be in |z->
-                zm_meas = ( newPsi[1] + newPsi[3] ) * bas1
+                zm_meas = ( Psi[1] + Psi[3] ) * bas1
                 norm = 1 / np.sqrt( np.conj( zm_meas ).T @ zm_meas )
                 psi_s = norm * zm_meas
 
