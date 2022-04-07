@@ -173,6 +173,9 @@ class QTT:
         return 0
 
 
+    def burnin_estimate(self):
+        return 0
+
 
     def Traj(self, psi_sys_0, timesteps, traj_resolution=0):
 
@@ -230,7 +233,7 @@ class QTT:
             Psi     = np.kron(H_newpsi_s, self.env_state) # entangling updated system state with a new environment state
 
 
-        return 0
+        return traj_result
 
 
 
