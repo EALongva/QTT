@@ -75,16 +75,23 @@ class QTT:
 
     """ Master class for all quantum trajectory theory methods. """
 
-    def __init__(self, env, meas_basis, hamiltonian, dt=0.01, theta=0.1, temperature=0.5, seed=1337 ):
+    def __init__(self, env, meas_basis, hamiltonian=0, dt=0.01, theta=0.1, temperature=0.5, seed=1337 ):
 
         self.env            = env
         self.meas           = meas_basis
         self.seed           = seed
-        self.H              = hamiltonian # system hamiltonian (separate from interaction)
+        
         self.temperature    = temperature
         self.theta          = theta
         self.dt             = dt
         
+        # defining the system Hamiltonian
+        if hamiltonian == 0:
+            print('Defaulting to empty hamiltonian')
+            self.H          = np.zeros((2, 2), dtype='complex128')
+        else:
+            self.H          = hamiltonian
+
         
         # variables not defined by init args
         self.resolution     = 0
@@ -148,6 +155,14 @@ class QTT:
         self.H_expansion    = np.eye(2) - 1j*self.dt * self.H - (self.dt**2/2) * self.H @ self.H
         self.Up_expansion   = np.eye(4) - 1j*self.thetap * self.Up - (self.thetap**2/2) * self.Up @ self.Up
         self.Um_expansion   = np.eye(4) - 1j*self.thetam * self.Um - (self.thetam**2/2) * self.Um @ self.Um
+
+
+    def system_hamiltonian(self, delta, epsilon):
+        # Hamiltonian in the rotating reference system
+
+        self.H = delta*sigmaz + epsilon*sigmay
+
+        return 0
 
 
 
@@ -294,8 +309,6 @@ class QTT:
 
 
 
-
-
 ### What should the class structure be like?
 
 # initialize class object with interaction hamiltonian and measurement basis,
@@ -314,11 +327,19 @@ class QTT:
 
 """ testing QTT """
 
-env = 'z'
-meas_basis = 'x'
+if __name__ == '__main__':
 
-seed = 381693
+    env = 'z'
+    meas_basis = 'x'
 
+    seed = 381693
 
-test = QTT(env, meas_basis, seed)
-print(test.Up)
+    #hamiltonian = 
+
+    test = QTT(env, meas_basis, seed=seed)
+    print(test.Up)
+
+    delta = 0.1
+    epsilon = 2.0
+    test.system_hamiltonian(delta, epsilon)
+    print(test.H)
