@@ -11,32 +11,68 @@ def main(S, N, delta, epsilon):
     meas_basis = 'x'
     seed = 381693
 
-    delta = 0.1
-    epsilon = 2.0
+    #delta = 0.1
+    #epsilon = 2.0
 
-    qtt = QTT(env, meas_basis, seed=seed)
-    qtt.system_hamiltonian(delta, epsilon)
+    dt = 0.01
+    total_simtime = N * dt
+
+    class_instance = QTT(env, meas_basis, seed=seed)
+    class_instance.system_hamiltonian(delta, epsilon)
 
     psi = bas0
 
+    start = time.perf_counter()
+
     for s in range(S):
 
-        temp = qtt.Traj(psi, N)
-        result[s] = temp[-1]
-        psi = np.copy(temp[-1])
+        if s == 0:
+            start = time.perf_counter()
+
+        trajSim = class_instance.Traj(psi, N)
+        result[s] = trajSim[-1]
+        psi = np.copy(trajSim[-1])
+
+        if s == 3:
+            end = time.perf_counter()
+
+            print('estimated time: ', ( ( end - start )/4.0 ) * S )
 
 
-    path = '../data/burnin/'
+    path = '../dat/burnin/'
     filename = path + 'burnin' + '_S_' + str(S) + '_N_' + str(N) + '_delta_' + str(delta).replace('.', 'p') + '_eps_' + str(epsilon).replace('.', 'p')
 
     np.save(filename, result)
 
+def aux(N, simtime, delta, epsilon):
+
+    result = np.zeros((S, 2, 1), dtype='complex128')
+
+    env = 'z'
+    meas_basis = 'x'
+    seed = 381693
+
+    #delta = 0.1
+    #epsilon = 2.0
+
+    #dt = 0.01
+    #total_simtime = N * dt
+
+    class_instance = QTT(env, meas_basis, seed=seed)
+    class_instance.system_hamiltonian(delta, epsilon)
+
+    trajSim = class_instance.Traj(psi, N, simtime)
+
+    psi = bas0
+
+    #start = time.perf_counter()
+
 def plot(S, N, delta, epsilon):
     
-    path = '../data/burnin/'
+    path = '../dat/burnin/'
     loadname = path + 'burnin' + '_S_' + str(S) + '_N_' + str(N) + '_delta_' + str(delta).replace('.', 'p') + '_eps_' + str(epsilon).replace('.', 'p')
 
-    states = np.load(loadname + '.npy')[9500:-1]
+    states = np.load(loadname + '.npy')[9900:-1]
 
     theta = 2 * np.arccos( states[:,0] )
     phi = np.imag( np.log( states[:,1] / np.sin(theta/2) ) )
@@ -73,7 +109,7 @@ def plot(S, N, delta, epsilon):
     fig.set_size_inches(16,9)
 
     figname = "../figure/burnin/" + 'burnin' + '_S_' + str(S) + '_N_' + str(N) + '_delta_' + str(delta).replace('.', 'p') + '_eps_' + str(epsilon).replace('.', 'p') + '_last500' + '.png'
-    fig.savefig(figname, dpi=400)
+    #fig.savefig(figname, dpi=400)
 
     plt.show()
     
@@ -83,13 +119,13 @@ def plot(S, N, delta, epsilon):
 
 # main 
 
-S = 1000
+S = 10000
 N = 1000
 delta = 0.1
-epsilon = 0.2
+epsilon = 0.05
 
-main(S, N, delta, epsilon)
+#main(S, N, delta, epsilon)
 
 # plot
 
-#plot(S, N, delta, epsilon)
+plot(S, N, delta, epsilon)
