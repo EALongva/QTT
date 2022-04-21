@@ -910,7 +910,7 @@ def freq(S, N, finaltime, psi0, H, U, temperature, theta=0.1, seed=1337, res=100
     times           = np.linspace(0,finaltime,res)
     dt              = finaltime/N
 
-    skip            = int(np.floor(N/res)) # resolution must be less than timesteps (N)
+    skip            = int(np.floor(N/res)) # resolution must be less than or equal to timesteps (N)
 
     # interaction hamiltonians
     #Usp = np.array(([0,0,0,1],[0,-1,0,0],[0,0,0,0],[1,0,0,1]), dtype='complex128')

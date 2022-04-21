@@ -86,7 +86,12 @@ class QTT:
         self.temperature    = temperature
         self.theta          = theta
         self.dt             = dt
+        self.finaltime      = 0
 
+        # storing results from simulations
+        self.trajectory = np.zeros((1,2,1), dtype='complex128')
+        self.mcResult   = np.zeros((1,1,2,1), dtype='complex128')
+        self.state      = np.zeros((2,1), dtype='complex128')
         
         # defining the system Hamiltonian
         if hamiltonian == 0:
@@ -160,6 +165,18 @@ class QTT:
         self.Um_expansion   = np.eye(4) - 1j*self.thetam * self.Um - (self.thetam**2/2) * self.Um @ self.Um
 
 
+    def evolution_ops(self):
+
+        self.thetap     = np.sqrt(gammap) * self.theta
+        self.thetam     = np.sqrt(gammam) * self.theta
+
+        self.H_expansion    = np.eye(2) - 1j*self.dt * self.H - (self.dt**2/2) * self.H @ self.H
+        self.Up_expansion   = np.eye(4) - 1j*self.thetap * self.Up - (self.thetap**2/2) * self.Up @ self.Up
+        self.Um_expansion   = np.eye(4) - 1j*self.thetam * self.Um - (self.thetam**2/2) * self.Um @ self.Um
+
+        return 0
+
+
     def system_hamiltonian(self, delta, epsilon):
         # Hamiltonian in the rotating reference system
 
@@ -167,20 +184,38 @@ class QTT:
 
         return 0
 
+    def rho(self):
+
+        rhos = np.zeros((self.mcResult[:,0,0,0].size,self.mcResult[0,:,0,0].size, 2, 2), dtype='complex128') # array of all density matrices
+
+        for s in range(self.mcResult[:,0,0,0].size):
+            rhos[s] = self.mcResult[s] @ dag(self.mcResult[s])
+
+        rho = np.mean(rhos, axis=0)
+
+        return rho
 
 
-
-    def MC(self):
+    def MC(self, S, psi_sys_0, timesteps, finaltime, traj_resolution=0):
         # Monte Carlo simulation over S trajectories
 
-        return 0
+        MC_traj = np.zeros((S, timesteps, 2, 1), dtype='complex128')
+
+        for s in range(S):
+
+            MC_traj[s] = self.Traj(psi_sys_0, timesteps, finaltime, traj_resolution)
+            self.seed += 1 
+
+        self.mcResult = MC_traj
+
+        return MC_traj
 
 
     def burnin_estimate(self):
         return 0
 
 
-    def Traj(self, psi_sys_0, timesteps, traj_resolution=0):
+    def Traj(self, psi_sys_0, timesteps, finaltime, traj_resolution=0):
 
         if traj_resolution != 0:
             self.resolution = traj_resolution
@@ -188,16 +223,16 @@ class QTT:
             self.resolution = timesteps
 
         # Single trajectory simulation over N timesteps
-
         # set up state: system tensordot environment
-
         # evolve with interaction hamiltonian
-
         # measure composite system -> collapse entanglement
-
         # evolve system state
-
         # return the new system state
+
+        self.finaltime  = finaltime
+        self.dt         = finaltime / timesteps
+
+        self.evolution_ops()
 
         Psi = np.array(np.kron(psi_sys_0, self.env_state), dtype='complex128')
 
@@ -205,6 +240,7 @@ class QTT:
 
         traj_result = np.zeros((self.resolution, 2, 1), dtype='complex128')
 
+        rnd.seed(self.seed) #seeding rng
         r = 1
 
         for n in range( timesteps - 1 ):
@@ -220,7 +256,7 @@ class QTT:
 
                 newPsi = self.Um_expansion @ Psi
             
-            newpsi_s = self.measure(newPsi)
+            newpsi_s = self.measure(newPsi, p)
 
             # Hamiltonian time evolution
 
@@ -228,13 +264,14 @@ class QTT:
 
             if (n+1+skip)%skip == 0:
 
-
                 traj_result[r] = H_newpsi_s
 
                 r += 1
 
             Psi     = np.kron(H_newpsi_s, self.env_state) # entangling updated system state with a new environment state
 
+        self.state = H_newpsi_s
+        self.trajectory = traj_result
 
         return traj_result
 
@@ -254,7 +291,7 @@ class QTT:
 
 
 
-    def measure(self, Psi):
+    def measure(self, Psi, p):
         # measuring environment after sys@env interaction
 
         if self.meas == 'x':
@@ -263,7 +300,7 @@ class QTT:
 
             prob_xp_meas = ( np.sqrt(0.5) * np.conj( xp_meas ).T ) @ ( np.sqrt(0.5) * xp_meas )
 
-            if rnd.random() <= prob_xp_meas:
+            if p <= prob_xp_meas:
                 # corresponds to measuring the environment to be in |x+>
                 norm = 1 / np.sqrt( np.conj( xp_meas ).T @ xp_meas )
                 psi_s = norm * xp_meas
@@ -280,7 +317,7 @@ class QTT:
 
             prob_yp_meas = ( np.sqrt(0.5) * np.conj( yp_meas ).T ) @ ( np.sqrt(0.5) * yp_meas )
 
-            if rnd.random() <= prob_yp_meas:
+            if p <= prob_yp_meas:
                 # corresponds to measuring the environment to be in |y+>
                 norm = 1 / np.sqrt( np.conj( yp_meas ).T @ yp_meas )
                 psi_s = norm * yp_meas
@@ -297,7 +334,7 @@ class QTT:
 
             prob_zp_meas = ( np.sqrt(0.5) * np.conj( zp_meas ).T ) @ ( np.sqrt(0.5) * zp_meas )
 
-            if rnd.random() <= prob_zp_meas:
+            if p <= prob_zp_meas:
                 # corresponds to measuring the environment to be in |z+>
                 norm = 1 / np.sqrt( np.conj( zp_meas ).T @ zp_meas )
                 psi_s = norm * zp_meas

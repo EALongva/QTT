@@ -1,7 +1,8 @@
 # testing multiprocessing
 
 from lib2to3.pgen2 import grammar
-import os
+import os as os
+import time as time
 import numpy as np
 import multiprocessing as mp
 
@@ -52,7 +53,7 @@ if __name__ == '__main__':
 """
 
 
-"""
+
 def power(x, n):
 
     time.sleep(1)
@@ -62,26 +63,26 @@ def power(x, n):
 
 def main():
 
-    start = timer()
+    start = time.perf_counter()
 
-    print(f'starting computations on {cpu_count()} cores')
+    #print(f'starting computations on {os.cpu_count()} cores')
 
     values = ((2, 2), (4, 3), (5, 5))
 
-    with Pool() as pool:
-        res = pool.starmap(power, values)
-        print(res)
+    pool = mp.Pool(1)
+    res = pool.starmap(power, values)
+    print(res)
 
-    end = timer()
+    end = time.perf_counter()
     print(f'elapsed time: {end - start}')
 
 
 if __name__ == '__main__':
     main()    
-"""
 
 
-delta = 10
-print(delta)
+
+
+
 
 #print(os.getppid())
