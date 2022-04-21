@@ -80,10 +80,13 @@ class QTT:
         self.env            = env
         self.meas           = meas_basis
         self.seed           = seed
-        
+
+        rnd.seed(seed) # seeding the rng
+
         self.temperature    = temperature
         self.theta          = theta
         self.dt             = dt
+
         
         # defining the system Hamiltonian
         if hamiltonian == 0:
