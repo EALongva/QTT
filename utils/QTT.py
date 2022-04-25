@@ -167,9 +167,6 @@ class QTT:
 
     def evolution_ops(self):
 
-        self.thetap     = np.sqrt(gammap) * self.theta
-        self.thetam     = np.sqrt(gammam) * self.theta
-
         self.H_expansion    = np.eye(2) - 1j*self.dt * self.H - (self.dt**2/2) * self.H @ self.H
         self.Up_expansion   = np.eye(4) - 1j*self.thetap * self.Up - (self.thetap**2/2) * self.Up @ self.Up
         self.Um_expansion   = np.eye(4) - 1j*self.thetam * self.Um - (self.thetam**2/2) * self.Um @ self.Um
@@ -204,7 +201,7 @@ class QTT:
         for s in range(S):
 
             MC_traj[s] = self.Traj(psi_sys_0, timesteps, finaltime, traj_resolution)
-            self.seed += 1 
+            self.seed += 1
 
         self.mcResult = MC_traj
 
