@@ -177,7 +177,7 @@ class QTT:
     def system_hamiltonian(self, delta, epsilon):
         # Hamiltonian in the rotating reference system
 
-        self.H = delta*sigmaz + epsilon*sigmay
+        self.H = delta * sigmaz + epsilon * sigmay
 
         return 0
 

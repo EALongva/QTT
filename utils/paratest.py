@@ -2,9 +2,9 @@
 
 from lib2to3.pgen2 import grammar
 import os as os
-import time as time
 import numpy as np
 import multiprocessing as mp
+import time as time
 
 
 """
@@ -54,6 +54,7 @@ if __name__ == '__main__':
 
 
 
+
 def power(x, n):
 
     time.sleep(1)
@@ -65,13 +66,13 @@ def main():
 
     start = time.perf_counter()
 
-    #print(f'starting computations on {os.cpu_count()} cores')
+    print(f'starting computations on {os.cpu_count()} cores')
 
-    values = ((2, 2), (4, 3), (5, 5))
+    values = ((2, 2), (4, 3), (5, 5), (6, 6))
 
-    pool = mp.Pool(1)
-    res = pool.starmap(power, values)
-    print(res)
+    with mp.Pool(3) as pool:
+        res = pool.starmap(power, values)
+        print(res)
 
     end = time.perf_counter()
     print(f'elapsed time: {end - start}')
@@ -82,7 +83,36 @@ if __name__ == '__main__':
 
 
 
+"""
+def power(S, N):
+
+    time.sleep(0.1)
+
+    print('S: ', S, 'N: ', N)
 
 
+def main():
+
+    start = time.perf_counter()
+
+    print(f'starting computations on {os.cpu_count()} cores')
+
+    S = 100
+    N = 1000
+
+    values = [(S, N)]
+
+    with mp.Pool() as pool:
+        res = pool.starmap(power, values)
+        print(res)
+
+    end = time.perf_counter()
+    print(f'elapsed time: {end - start}')
+
+
+if __name__ == '__main__':
+    main()    
+
+"""
 
 #print(os.getppid())

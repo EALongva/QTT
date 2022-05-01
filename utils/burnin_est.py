@@ -60,9 +60,14 @@ def aux(N, simtime, delta, epsilon):
     #total_simtime = N * dt
 
     class_instance = QTT(env, meas_basis, seed=seed)
-    #class_instance.system_hamiltonian(delta, epsilon)
+    class_instance.system_hamiltonian(delta, epsilon)
+    print(class_instance.H)
 
+    start = time.perf_counter()
     result = class_instance.Traj(psi, N, simtime)
+    stop = time.perf_counter()
+
+    print('trajectory simulation time: ', (stop - start))
 
     path = '../data/single_traj/'
     filename = path + 'test_traj' + '_N_' + str(N) + '_delta_' + str(delta).replace('.', 'p') + '_eps_' + str(epsilon).replace('.', 'p')
