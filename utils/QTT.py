@@ -1,5 +1,6 @@
 # QTT class
 
+from os import times_result
 import sys as sys
 import matplotlib.pyplot as plt
 import numpy as np
@@ -86,12 +87,16 @@ class QTT:
         self.temperature    = temperature
         self.theta          = theta
         self.dt             = dt
-        self.finaltime      = 0
+        self.inittime       = 0.0
+        self.finaltime      = 0.0
+        self.timesteps      = 1
 
         # storing results from simulations
         self.trajectory = np.zeros((1,2,1), dtype='complex128')
         self.mcResult   = np.zeros((1,1,2,1), dtype='complex128')
         self.state      = np.zeros((2,1), dtype='complex128')
+        self.state0     = np.zeros((2,1), dtype='complex128')
+        self.rhoResult  = np.zeros((1,2,2), dtype='complex128')
         
         # defining the system Hamiltonian
         if hamiltonian == 0:
@@ -188,10 +193,23 @@ class QTT:
         for s in range(self.mcResult[:,0,0,0].size):
             rhos[s] = self.mcResult[s] @ dag(self.mcResult[s])
 
-        rho = np.mean(rhos, axis=0)
+        self.rhoResult = np.mean(rhos, axis=0)
 
-        return rho
+        return self.rhoResult
 
+    def bloch(self):
+
+        x = self.rhoResult[:,1,0] + self.rhoResult[:,0,1]
+        y = 1j*(self.rhoResult[:,1,0] - self.rhoResult[:,0,1])
+        z = self.rhoResult[:,0,0] - self.rhoResult[:,1,1]
+
+        return [x, y, z]
+
+    def times(self):
+
+        times_result = np.linspace(self.inittime, self.finaltime, self.timesteps)
+
+        return times_result
 
     def MC(self, S, psi_sys_0, timesteps, finaltime, traj_resolution=0):
         # Monte Carlo simulation over S trajectories
@@ -228,6 +246,8 @@ class QTT:
 
         self.finaltime  = finaltime
         self.dt         = finaltime / timesteps
+        self.timesteps  = timesteps
+        self.state0     = psi_sys_0
 
         self.evolution_ops()
 
@@ -272,6 +292,12 @@ class QTT:
 
         return traj_result
 
+
+    def lindblad(self):
+
+        lb_result = qp.mesolve(qp.Qobj(self.H), qp.Qobj(self.state0), times, c_ops, [])
+
+        return lb_result
 
 
     def interaction_evolve(self):
