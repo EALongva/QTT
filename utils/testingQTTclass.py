@@ -131,10 +131,24 @@ def pool_qttMC_alt(S, N, seed, ncpu):
 # will have to calculate rho in some other way than this
 
 # input variables
-S = 5
-N = 3
+S = 100
+N = 100
 seed = 1234
 ncpu = 4
 
 #pool_qttMC(S, N, seed, ncpu)
 #pool_qttMC_alt(S, N, seed, ncpu)
+
+env = 'z'
+meas_basis = 'x'
+simtime = 30.0
+delta = 0
+epsilon = 0
+psi = bas0
+
+#dt = 0.01
+#total_simtime = N * dt
+
+class_instance = QTT(env, meas_basis, seed=seed)
+class_instance.system_hamiltonian(delta, epsilon)
+class_instance.paraMC(S, bas0, N, simtime, ncpu)

@@ -10,6 +10,7 @@ import random as rnd
 import time as time
 from datetime import timedelta
 import math as math
+import multiprocessing as mp
 from scipy.linalg import expm
 from mpl_toolkits.mplot3d import Axes3D
 
@@ -211,8 +212,13 @@ class QTT:
 
         return times_result
 
-    def MC(self, S, psi_sys_0, timesteps, finaltime, traj_resolution=0):
+    def MC(self, S, psi_sys_0, timesteps, finaltime, dseed=0, traj_resolution=0):
         # Monte Carlo simulation over S trajectories
+
+        if dseed == 0:
+            dseed = self.seed
+
+        rnd.seed(dseed)
 
         MC_traj = np.zeros((S, timesteps, 2, 1), dtype='complex128')
 
@@ -224,6 +230,33 @@ class QTT:
         self.mcResult = MC_traj
 
         return MC_traj
+
+    def paraMC(self, S, psi_sys_0, timesteps, finaltime, ncpu, traj_resolution=0):
+
+        if S%ncpu == 0:
+            S_ = int(S/ncpu)
+        else:
+            print('please enter a valid combination of S and ncpu')
+
+        args = []
+        for d in range(ncpu):
+            dseed = self.seed + d
+            args.append([S_, psi_sys_0, timesteps, finaltime, dseed])
+
+        pool = mp.Pool(ncpu)
+        result = pool.starmap(self.MC, args)
+        pool.close()
+
+        paraMCresult = []
+        for n in range(ncpu):
+            paraMCresult.append(result[n])
+
+        self.mcResult = np.asarray(paraMCresult)
+
+
+        print('successfully simulated ', self.mcResult[:,0,0,0].size, ' trajectories')
+
+        return 0
 
 
     def burnin_estimate(self):
@@ -295,7 +328,9 @@ class QTT:
 
     def lindblad(self):
 
-        lb_result = qp.mesolve(qp.Qobj(self.H), qp.Qobj(self.state0), times, c_ops, [])
+        timearray = np.linspace(self.inittime, self.finaltime, self.timesteps)
+
+        lb_result = qp.mesolve(qp.Qobj(self.H), qp.Qobj(self.state0), timearray, c_ops, [])
 
         return lb_result
 
