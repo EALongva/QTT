@@ -77,7 +77,7 @@ class QTT:
 
     """ Master class for all quantum trajectory theory methods. """
 
-    def __init__(self, env, meas_basis, hamiltonian=0, dt=0.01, theta=0.1, temperature=0.5, seed=1337 ):
+    def __init__(self, env, meas_basis, hamiltonian=0, dt=0.01, theta=0.01, temperature=0.5, seed=1337 ):
 
         self.env            = env
         self.meas           = meas_basis
@@ -97,7 +97,12 @@ class QTT:
         self.mcResult   = np.zeros((1,1,2,1), dtype='complex128')
         self.state      = np.zeros((2,1), dtype='complex128')
         self.state0     = np.zeros((2,1), dtype='complex128')
-        self.rhoResult  = np.zeros((1,2,2), dtype='complex128')
+        #self.rhoResult  = np.zeros((1,2,2), dtype='complex128')
+        self.rhoResult  = 0
+
+        # Lindblad solutions using QuTiP
+        self.rhoLB      = 0
+        self.blochvecLB = []
         
         # defining the system Hamiltonian
         if hamiltonian == 0:
@@ -154,17 +159,22 @@ class QTT:
             print("invalid environment chosen: expected type string with arguments 'x', 'y' or 'z', but got: ", self.env)
 
 
+        ### lindblad operators
+
+        self.Lp = qp.basis(2,1)*qp.basis(2,0).dag()
+        self.Lm = qp.basis(2,0)*qp.basis(2,1).dag()
+
         # second order expansions of system hamiltonian and interaction hamiltonian for single temperature, for multiple 
         # temperatures I will have to implement a different method could potentially just make a MC method for multiple 
         # temperatures where the expansions are updated for each temp
 
         pdensity        = 1 / ( np.exp( 1/self.temperature ) - 1 )
-        gammap          = pdensity
-        gammam          = pdensity + 1
+        self.gammap          = pdensity
+        self.gammam          = pdensity + 1
 
         # temperature dependent interaction strength
-        self.thetap     = np.sqrt(gammap) * self.theta
-        self.thetam     = np.sqrt(gammam) * self.theta
+        self.thetap     = np.sqrt(self.gammap) * self.theta
+        self.thetam     = np.sqrt(self.gammam) * self.theta
 
         self.H_expansion    = np.eye(2) - 1j*self.dt * self.H - (self.dt**2/2) * self.H @ self.H
         self.Up_expansion   = np.eye(4) - 1j*self.thetap * self.Up - (self.thetap**2/2) * self.Up @ self.Up
@@ -187,6 +197,7 @@ class QTT:
 
         return 0
 
+
     def rho(self):
 
         rhos = np.zeros((self.mcResult[:,0,0,0].size,self.mcResult[0,:,0,0].size, 2, 2), dtype='complex128') # array of all density matrices
@@ -198,13 +209,23 @@ class QTT:
 
         return self.rhoResult
 
-    def bloch(self):
 
-        x = self.rhoResult[:,1,0] + self.rhoResult[:,0,1]
-        y = 1j*(self.rhoResult[:,1,0] - self.rhoResult[:,0,1])
-        z = self.rhoResult[:,0,0] - self.rhoResult[:,1,1]
+    def blochvec(self, LB=False):
+        # calculating bloch vector
+
+        print('compute rho self.rho() before computing blochvecs')
+
+        if LB is False:
+            x = self.rhoResult[:,1,0] + self.rhoResult[:,0,1]
+            y = 1j*(self.rhoResult[:,1,0] - self.rhoResult[:,0,1])
+            z = self.rhoResult[:,0,0] - self.rhoResult[:,1,1]
+        else:
+            x = self.rhoLB[:,1,0] + self.rhoLB[:,0,1]
+            y = 1j*(self.rhoLB[:,1,0] - self.rhoLB[:,0,1])
+            z = self.rhoLB[:,0,0] - self.rhoLB[:,1,1]
 
         return [x, y, z]
+
 
     def times(self):
 
@@ -212,8 +233,12 @@ class QTT:
 
         return times_result
 
+
     def MC(self, S, psi_sys_0, timesteps, finaltime, dseed=0, traj_resolution=0):
         # Monte Carlo simulation over S trajectories
+
+        self.state0 = psi_sys_0
+        self.timesteps = timesteps
 
         if dseed == 0:
             dseed = self.seed
@@ -231,7 +256,13 @@ class QTT:
 
         return MC_traj
 
+
     def paraMC(self, S, psi_sys_0, timesteps, finaltime, ncpu, traj_resolution=0):
+
+        self.finaltime  = finaltime
+        self.dt         = finaltime / timesteps
+        self.state0     = psi_sys_0
+        self.timesteps  = timesteps
 
         if S%ncpu == 0:
             S_ = int(S/ncpu)
@@ -247,12 +278,7 @@ class QTT:
         result = pool.starmap(self.MC, args)
         pool.close()
 
-        paraMCresult = []
-        for n in range(ncpu):
-            paraMCresult.append(result[n])
-
-        self.mcResult = np.asarray(paraMCresult)
-
+        self.mcResult = np.concatenate(np.asarray(result)) #tiling trajectory results from all cpus
 
         print('successfully simulated ', self.mcResult[:,0,0,0].size, ' trajectories')
 
@@ -328,9 +354,25 @@ class QTT:
 
     def lindblad(self):
 
-        timearray = np.linspace(self.inittime, self.finaltime, self.timesteps)
+        timearray   = np.linspace(self.inittime, self.finaltime, self.timesteps)
 
-        lb_result = qp.mesolve(qp.Qobj(self.H), qp.Qobj(self.state0), timearray, c_ops, [])
+        a           = np.sqrt( (self.theta**2) / (2.0*self.dt))
+
+        c_ops       = [ np.sqrt(self.gammam) * a * self.Lm, np.sqrt(self.gammap) * a * self.Lp ]
+
+        print('collapse operators: ', c_ops)
+        print('init state: ', self.state0)
+        print('hamiltonian: ', self.H)
+
+        lb_result   = qp.mesolve(qp.Qobj(self.H), qp.Qobj(self.state0), timearray, c_ops, [])
+
+        self.rhoLB  = np.array(lb_result.states)
+
+        lx = self.rhoLB[:,1,0] + self.rhoLB[:,0,1]
+        ly = 1j*(self.rhoLB[:,1,0] - self.rhoLB[:,0,1])
+        lz = self.rhoLB[:,0,0] - self.rhoLB[:,1,1]
+
+        self.blochvecLB = [lx, ly, lz]
 
         return lb_result
 
