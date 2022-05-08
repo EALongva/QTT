@@ -11,6 +11,7 @@ import time as time
 from datetime import timedelta
 import math as math
 import multiprocessing as mp
+from tqdm import tqdm
 from scipy.linalg import expm
 from mpl_toolkits.mplot3d import Axes3D
 
@@ -243,6 +244,8 @@ class QTT:
         if dseed == 0:
             dseed = self.seed
 
+        print('seed: ', dseed)
+
         rnd.seed(dseed)
 
         MC_traj = np.zeros((S, timesteps, 2, 1), dtype='complex128')
@@ -250,7 +253,7 @@ class QTT:
         for s in range(S):
 
             MC_traj[s] = self.Traj(psi_sys_0, timesteps, finaltime, traj_resolution)
-            self.seed += 1
+            #self.seed += 1
 
         self.mcResult = MC_traj
 
@@ -315,8 +318,8 @@ class QTT:
         skip = int(np.floor( timesteps / self.resolution )) # resolution must be less than or equal to timesteps (N)
 
         traj_result = np.zeros((self.resolution, 2, 1), dtype='complex128')
+        traj_result[0] = psi_sys_0
 
-        rnd.seed(self.seed) #seeding rng
         r = 1
 
         for n in range( timesteps - 1 ):
@@ -447,6 +450,133 @@ class QTT:
 
         return psi_s
 
+    def freq(self):
+
+        QT = self.mcResult        
+
+        # master loop - computing freq for each individual traj and storing it in 'frequencies'-array
+
+        frequencies = np.zeros(QT[:,0,0,0].size)
+
+        for s in range(QT[:,0,0,0].size):
+            
+            rho = QT[s] @ dag(QT[s])
+
+            rx = rho[:,1,0] + rho[:,0,1]
+            ry = 1j*(rho[:,1,0] - rho[:,0,1])
+
+            eps = 1e-1 # sensitivity for detecting minima
+
+            angles = np.arctan2(ry.real, rx.real)
+            abs_angles = np.abs(angles)
+
+            minima = ma.masked_less(abs_angles, eps).mask
+
+            
+            # for loop to determine suitable sensitivity in cut off
+            
+            count = 0; long_count = 0
+
+            for i in range(minima.size - 1):
+
+                if minima[i] or minima[i + 1]:
+                    
+                    if count > long_count:
+
+                        long_count = count
+                    
+                    count = 0
+
+                else:
+
+                    count += 1
+
+            sens = int(np.floor(long_count/2)) # computing sensitivity
+
+            
+            # for-loop to cut off extra maxima around peaks due to diffusion "noise"
+
+            cut_minima = minima[sens:]
+            cutoff_minima = np.copy(minima)
+            cutoff_minima[:sens] = 0
+
+            for i in range(cutoff_minima.size):
+
+                if cutoff_minima[i]:
+
+                    cutoff_minima[ i + 1 : (i + sens) ] = 0
+
+
+            # computing frequency
+
+            rotcount = np.sum(cutoff_minima)
+
+            total_angle = 2*np.pi * rotcount + abs_angles[-1]
+
+            rotations = total_angle/(2*np.pi)
+
+            frequencies[s] = rotations / times[-1]
+
+        measured_frequency = np.mean(frequencies)
+
+        return measured_frequency
+
+    def freqSynchro(M, S, N, omega0, dOmega, finaltime, psi0, U, temperature, theta=0.1, sig_strength=1.0, seed=1337, res=1000, test=1.0):
+
+        # M: number of quantum trajectory simulation to perform
+        # S: number of monte carlo simulations (trajectories per run)
+        # N: number of timesteps per trajectory
+        # dOmega: frequency difference (system frequency, ie H_0 = omega/2 * sigmaz)
+
+        # U = [U_p, U_m]
+
+        info = np.array([M, S, N, omega0, dOmega, finaltime, temperature, theta, sig_strength] )
+
+        traj_freq = np.zeros(M)
+
+        """ test """
+
+        omega = np.linspace(omega0-dOmega, omega0+dOmega, M)
+        H = np.zeros((M, 2, 2), dtype='complex128')
+
+        """
+        for i in range(M):
+            H[i] = np.array( 0.5*omega0*sigmaz + 1j * 0.25 * sig_strength * (np.exp(1j*omega[i]) * sigmam - np.exp(-1j*omega[i]) * sigmap ) , dtype='complex128' )
+        """
+
+        for i in range(M):
+            H[i] = np.array( (0.5 * (omega0 - omega[i]) * sigmaz + 0.5 * sig_strength * sigmay ), dtype='complex128' )
+
+
+        for m in range(M):
+
+            print(m)
+
+            if m==0:
+                ping_freq_0 = time.perf_counter()
+
+            traj_freq[m] = freq(S, N, finaltime, psi0, H[m], U, temperature, theta, seed, res, test)
+
+            # updating seed
+            seed += int(S*N)
+
+            if m==0:
+                ping_freq_1 = time.perf_counter()
+                print("estimated finish time: ", (ping_freq_1-ping_freq_0)*M)
+        
+
+        direc = "../dat/freq/"
+        # should find a better filename system
+        filename = direc + "FREQ" + "_M_" + str(M) + "_S_" + str(S) + "_N_" + str(N) + "_tet_" + str(theta).replace('.', 'p') + "_dOmega_" + str(dOmega).replace('.', 'p')
+        np.save(filename, traj_freq)
+
+        timesname = filename + "_omega"
+        np.save(timesname, omega)
+
+        infoname = filename + "_info"
+        np.save(infoname, info)
+
+        return 0
 
 
 

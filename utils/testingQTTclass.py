@@ -164,9 +164,9 @@ print('MC simulation time: ', (finish_time-start_time)) # approx 2.5 minutes for
 
 """
 
-def results(S, N, simtime, psi0, delta, epsilon, seed):
+def results(S, N, simtime, psi0, theta, delta, epsilon, seed):
 
-    class_instance = QTT(env, meas_basis, seed=seed)
+    class_instance = QTT(env, meas_basis, theta=theta, seed=seed)
     class_instance.system_hamiltonian(delta, epsilon)
 
     start_time = time.perf_counter()
@@ -194,9 +194,9 @@ def results(S, N, simtime, psi0, delta, epsilon, seed):
     return 0
 
 
-def plot_results(S, N, simtime, psi0, delta, epsilon, seed):
+def plot_results(S, N, simtime, psi0, theta, delta, epsilon, seed):
 
-    class_instance = QTT(env, meas_basis, seed=seed)
+    class_instance = QTT(env, meas_basis, theta=theta, seed=seed)
     class_instance.system_hamiltonian(delta, epsilon)
 
     path = '../data/QTT_class_test/'
@@ -262,7 +262,7 @@ def plot_results(S, N, simtime, psi0, delta, epsilon, seed):
 
     return 0
 
-
+"""
 # input variables
 S = 400
 N = 100000
@@ -281,3 +281,27 @@ psi0 = xplus
 
 #results(S, N, simtime, psi0, delta, epsilon, seed)
 plot_results(S, N, simtime, psi0, delta, epsilon, seed)
+"""
+
+"""
+# input variables
+S = 800
+N = 10000
+seed = 1234
+ncpu = 4
+
+#pool_qttMC(S, N, seed, ncpu)
+#pool_qttMC_alt(S, N, seed, ncpu)
+
+env = 'z'
+meas_basis = 'x'
+simtime = 100.0
+theta = 0.05
+delta = 0
+epsilon = 0
+psi0 = xplus
+
+#results(S, N, simtime, psi0, theta, delta, epsilon, seed)
+#plot_results(S, N, simtime, psi0, theta, delta, epsilon, seed)
+# """
+

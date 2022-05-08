@@ -20,26 +20,16 @@ def main(S, N, delta, epsilon):
     class_instance = QTT(env, meas_basis, seed=seed)
     class_instance.system_hamiltonian(delta, epsilon)
 
-    psi = bas0
+    psi = xplus
 
-    start = time.perf_counter()
+    for s in tqdm(range(S)):
 
-    for s in range(S):
-
-        if s == 0:
-            start = time.perf_counter()
-
-        trajSim = class_instance.Traj(psi, N)
+        trajSim = class_instance.Traj(psi, N, total_simtime)
         result[s] = trajSim[-1]
         psi = np.copy(trajSim[-1])
 
-        if s == 3:
-            end = time.perf_counter()
 
-            print('estimated time: ', ( ( end - start )/4.0 ) * S )
-
-
-    path = '../dat/burnin/'
+    path = '../data/burnin/'
     filename = path + 'burnin' + '_S_' + str(S) + '_N_' + str(N) + '_delta_' + str(delta).replace('.', 'p') + '_eps_' + str(epsilon).replace('.', 'p')
 
     np.save(filename, result)
@@ -54,7 +44,7 @@ def aux(N, simtime, delta, epsilon):
 
     #delta = -0.05
     #epsilon = 0.5
-    psi = bas0
+    psi0 = xplus
 
     #dt = 0.01
     #total_simtime = N * dt
@@ -64,7 +54,7 @@ def aux(N, simtime, delta, epsilon):
     print(class_instance.H)
 
     start = time.perf_counter()
-    result = class_instance.Traj(psi, N, simtime)
+    result = class_instance.Traj(psi0, N, simtime)
     stop = time.perf_counter()
 
     print('trajectory simulation time: ', (stop - start))
@@ -76,10 +66,10 @@ def aux(N, simtime, delta, epsilon):
 
 def plot(S, N, delta, epsilon):
     
-    path = '../dat/burnin/'
+    path = '../data/burnin/'
     loadname = path + 'burnin' + '_S_' + str(S) + '_N_' + str(N) + '_delta_' + str(delta).replace('.', 'p') + '_eps_' + str(epsilon).replace('.', 'p')
 
-    states = np.load(loadname + '.npy')[9900:-1]
+    states = np.load(loadname + '.npy')
 
     theta = 2 * np.arccos( states[:,0] )
     phi = np.imag( np.log( states[:,1] / np.sin(theta/2) ) )
@@ -106,7 +96,7 @@ def plot(S, N, delta, epsilon):
     ry = 1j*(rho[:,1,0] - rho[:,0,1])
     rz = rho[:,0,0] - rho[:,1,1]
 
-    R = [rx.real, ry.real, rz.real]
+    R = [rx, ry, rz]
 
     sphere.add_points(R)
 
@@ -168,15 +158,15 @@ def auxplot(N, delta, epsilon):
 
 # main 
 
-S = 10000
-N = 20000
+S = 100
+N = 2000
 delta = 0.5
-epsilon = -0.05
+epsilon = -0.25
 simtime = 20.0
 
 #main(S, N, delta, epsilon)
-aux(N, simtime, delta, epsilon)
+#aux(N, simtime, delta, epsilon)
 
 # plot
-#plot(S, N, delta, epsilon)
+plot(S, N, delta, epsilon)
 #auxplot(N, delta, epsilon)
