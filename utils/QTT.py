@@ -101,6 +101,7 @@ class QTT:
         #self.rhoResult  = np.zeros((1,2,2), dtype='complex128')
         self.rhoResult  = 0
         self.blochvecResult = []
+        self.freqResult = 0
 
         # Lindblad solutions using QuTiP
         self.rhoLB      = 0
@@ -519,23 +520,18 @@ class QTT:
 
     def freq(self):
 
-        self.paraMC()
-
-        QT = self.mcResult        
-
         # master loop - computing freq for each individual traj and storing it in 'frequencies'-array
 
-        frequencies = np.zeros(QT[:,0,0,0].size)
+        S = self.mcResult[:,0,0,0].size
 
-        for s in range(QT[:,0,0,0].size):
-            
-            rho = QT[s] @ dag(QT[s])
+        times = self.times()
 
-            rx = rho[:,1,0] + rho[:,0,1]
-            ry = 1j*(rho[:,1,0] - rho[:,0,1])
+        frequencies = np.zeros(S)
 
-            rx = self.blochvec[0]
-            ry = self.blochvec[1]
+        for s in range(S):
+
+            rx = self.blochvecResult[0]
+            ry = self.blochvecResult[1]
 
             eps = 1e-1 # sensitivity for detecting minima
 
@@ -593,32 +589,26 @@ class QTT:
 
         return measured_frequency
 
-    def freqSynchro(self, M, S, N, burnin, psi0, simtime, ncpu, omega0, domega, epsilon):
+    def freqSynchro(self, M, S, N, burnin, psi0, simtime, ncpu, delta0, dDelta, epsilon):
 
         # M: number of quantum trajectory simulation to perform
         # S: number of monte carlo simulations (trajectories per run)
         # N: number of timesteps per trajectory
-        # domega: frequency difference (system frequency, ie H_0 = omega/2 * sigmaz)
-
-        # U = [U_p, U_m]
-
-        info = np.array([M, S, N, omega0, domega, finaltime, temperature, theta, epsilon] )
+        # dDelta: frequency difference (system frequency, ie H_0 = omega/2 * sigmaz)
 
         ### finding burnin state:
 
         burnin_finaltime = burnin * (simtime/N)
-        self.Burnin(psi0, burnin, burnin_finaltime)
-        burnin_state = self.state
 
         traj_freq = np.zeros(M)
 
         """ test """
 
-        omega = np.linspace(omega0-domega, omega0+domega, M)
+        omega = np.linspace(delta0-dDelta, delta0+dDelta, M)
 
         """
         for i in range(M):
-            Harray[i] = np.array( 0.5*omega0*sigmaz + 1j * 0.25 * epsilon * (np.exp(1j*omega[i]) * sigmam - np.exp(-1j*omega[i]) * sigmap ) , dtype='complex128' )
+            Harray[i] = np.array( 0.5*delta0*sigmaz + 1j * 0.25 * epsilon * (np.exp(1j*omega[i]) * sigmam - np.exp(-1j*omega[i]) * sigmap ) , dtype='complex128' )
         """
         """
         for i in range(M):
@@ -628,25 +618,24 @@ class QTT:
         for m in range(M):
 
             self.system_hamiltonian(omega[m], epsilon)
+ 
+            self.Burnin(psi0, burnin, burnin_finaltime)
+            burnin_state = self.state
 
             self.paraMC(S, burnin_state, N, simtime, ncpu)
 
-            traj_freq[m] = self.freq(S, N, finaltime, psi0, Harray[m], U, temperature, theta, seed, res, test)
+            self.seed += ncpu + 1 # keeping fresh seeding for all MC simulations
+
+            # computing bloch vectors
+            self.rho()
+            self.blochvec()
+
+            traj_freq[m] = self.freq()
         
 
-        direc = "../dat/freq/"
-        # should find a better filename system
-        filename = direc + "FREQ" + "_M_" + str(M) + "_S_" + str(S) + "_N_" + str(N) + "_tet_" + \
-            str(theta).replace('.', 'p') + "_domega_" + str(domega).replace('.', 'p')
-        np.save(filename, traj_freq)
+        self.freqResult = traj_freq
 
-        timesname = filename + "_omega"
-        np.save(timesname, omega)
-
-        infoname = filename + "_info"
-        np.save(infoname, info)
-
-        return 0
+        return traj_freq
 
 
 
