@@ -100,6 +100,7 @@ class QTT:
         self.state0     = np.zeros((2,1), dtype='complex128')
         #self.rhoResult  = np.zeros((1,2,2), dtype='complex128')
         self.rhoResult  = 0
+        self.blochvecResult = []
 
         # Lindblad solutions using QuTiP
         self.rhoLB      = 0
@@ -224,6 +225,8 @@ class QTT:
             x = self.rhoLB[:,1,0] + self.rhoLB[:,0,1]
             y = 1j*(self.rhoLB[:,1,0] - self.rhoLB[:,0,1])
             z = self.rhoLB[:,0,0] - self.rhoLB[:,1,1]
+
+        self.blochvecResult = [x,y,z]
 
         return [x, y, z]
 
@@ -355,9 +358,74 @@ class QTT:
         return traj_result
 
 
+    def Burnin(self, psi_sys_0, timesteps, finaltime, traj_resolution=0):
+
+        if traj_resolution != 0:
+            self.resolution = traj_resolution
+        else:
+            self.resolution = timesteps
+
+        # Single trajectory simulation over N timesteps
+        # set up state: system tensordot environment
+        # evolve with interaction hamiltonian
+        # measure composite system -> collapse entanglement
+        # evolve system state
+        # return the new system state
+
+        self.finaltime  = finaltime
+        self.dt         = finaltime / timesteps
+        self.timesteps  = timesteps
+        self.state0     = psi_sys_0
+
+        self.evolution_ops()
+
+        Psi = np.array(np.kron(psi_sys_0, self.env_state), dtype='complex128')
+
+        skip = int(np.floor( timesteps / self.resolution )) # resolution must be less than or equal to timesteps (N)
+
+        traj_result = np.zeros((self.resolution, 2, 1), dtype='complex128')
+        traj_result[0] = psi_sys_0
+
+        r = 1
+
+        for n in tqdm(range( timesteps - 1 )):
+
+            p = rnd.random()
+
+            # alternating evenly, temperature dependence in interaction strength parameter
+            if (n+1)%2 == 1:
+
+                newPsi = self.Up_expansion @ Psi
+
+            else:
+
+                newPsi = self.Um_expansion @ Psi
+            
+            newpsi_s = self.measure(newPsi, p)
+
+            # Hamiltonian time evolution
+
+            H_newpsi_s = self.H_expansion @ newpsi_s
+
+            if (n+1+skip)%skip == 0:
+
+                traj_result[r] = H_newpsi_s
+
+                r += 1
+
+            Psi     = np.kron(H_newpsi_s, self.env_state) # entangling updated system state with a new environment state
+
+        self.state = H_newpsi_s
+        self.trajectory = traj_result
+
+        return traj_result
+
+
     def lindblad(self):
 
         timearray   = np.linspace(self.inittime, self.finaltime, self.timesteps)
+
+        print(timearray.shape)
 
         a           = np.sqrt( (self.theta**2) / (2.0*self.dt))
 
@@ -385,8 +453,6 @@ class QTT:
         # most likely not needed but will exist inside of the trajectory simulation
 
         return 0
-
-
 
     def system_evolve(self):
 
@@ -450,7 +516,10 @@ class QTT:
 
         return psi_s
 
+
     def freq(self):
+
+        self.paraMC()
 
         QT = self.mcResult        
 
@@ -464,6 +533,9 @@ class QTT:
 
             rx = rho[:,1,0] + rho[:,0,1]
             ry = 1j*(rho[:,1,0] - rho[:,0,1])
+
+            rx = self.blochvec[0]
+            ry = self.blochvec[1]
 
             eps = 1e-1 # sensitivity for detecting minima
 
@@ -521,53 +593,51 @@ class QTT:
 
         return measured_frequency
 
-    def freqSynchro(M, S, N, omega0, dOmega, finaltime, psi0, U, temperature, theta=0.1, sig_strength=1.0, seed=1337, res=1000, test=1.0):
+    def freqSynchro(self, M, S, N, burnin, psi0, simtime, ncpu, omega0, domega, epsilon):
 
         # M: number of quantum trajectory simulation to perform
         # S: number of monte carlo simulations (trajectories per run)
         # N: number of timesteps per trajectory
-        # dOmega: frequency difference (system frequency, ie H_0 = omega/2 * sigmaz)
+        # domega: frequency difference (system frequency, ie H_0 = omega/2 * sigmaz)
 
         # U = [U_p, U_m]
 
-        info = np.array([M, S, N, omega0, dOmega, finaltime, temperature, theta, sig_strength] )
+        info = np.array([M, S, N, omega0, domega, finaltime, temperature, theta, epsilon] )
+
+        ### finding burnin state:
+
+        burnin_finaltime = burnin * (simtime/N)
+        self.Burnin(psi0, burnin, burnin_finaltime)
+        burnin_state = self.state
 
         traj_freq = np.zeros(M)
 
         """ test """
 
-        omega = np.linspace(omega0-dOmega, omega0+dOmega, M)
-        H = np.zeros((M, 2, 2), dtype='complex128')
+        omega = np.linspace(omega0-domega, omega0+domega, M)
 
         """
         for i in range(M):
-            H[i] = np.array( 0.5*omega0*sigmaz + 1j * 0.25 * sig_strength * (np.exp(1j*omega[i]) * sigmam - np.exp(-1j*omega[i]) * sigmap ) , dtype='complex128' )
+            Harray[i] = np.array( 0.5*omega0*sigmaz + 1j * 0.25 * epsilon * (np.exp(1j*omega[i]) * sigmam - np.exp(-1j*omega[i]) * sigmap ) , dtype='complex128' )
         """
-
+        """
         for i in range(M):
-            H[i] = np.array( (0.5 * (omega0 - omega[i]) * sigmaz + 0.5 * sig_strength * sigmay ), dtype='complex128' )
-
+            Harray[i] = self.system_hamiltonian(omega[i], epsilon)
+        """
 
         for m in range(M):
 
-            print(m)
+            self.system_hamiltonian(omega[m], epsilon)
 
-            if m==0:
-                ping_freq_0 = time.perf_counter()
+            self.paraMC(S, burnin_state, N, simtime, ncpu)
 
-            traj_freq[m] = freq(S, N, finaltime, psi0, H[m], U, temperature, theta, seed, res, test)
-
-            # updating seed
-            seed += int(S*N)
-
-            if m==0:
-                ping_freq_1 = time.perf_counter()
-                print("estimated finish time: ", (ping_freq_1-ping_freq_0)*M)
+            traj_freq[m] = self.freq(S, N, finaltime, psi0, Harray[m], U, temperature, theta, seed, res, test)
         
 
         direc = "../dat/freq/"
         # should find a better filename system
-        filename = direc + "FREQ" + "_M_" + str(M) + "_S_" + str(S) + "_N_" + str(N) + "_tet_" + str(theta).replace('.', 'p') + "_dOmega_" + str(dOmega).replace('.', 'p')
+        filename = direc + "FREQ" + "_M_" + str(M) + "_S_" + str(S) + "_N_" + str(N) + "_tet_" + \
+            str(theta).replace('.', 'p') + "_domega_" + str(domega).replace('.', 'p')
         np.save(filename, traj_freq)
 
         timesname = filename + "_omega"
