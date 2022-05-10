@@ -84,6 +84,11 @@ class QTT:
         self.meas           = meas_basis
         self.seed           = seed
 
+        ### for debugging:
+
+        self.debug = False
+
+
         rnd.seed(seed) # seeding the rng
 
         self.temperature    = temperature
@@ -522,7 +527,9 @@ class QTT:
 
         # master loop - computing freq for each individual traj and storing it in 'frequencies'-array
 
-        S = self.mcResult[:,0,0,0].size
+        QT = self.mcResult
+
+        S = QT[:,0,0,0].size
 
         times = self.times()
 
@@ -530,8 +537,12 @@ class QTT:
 
         for s in range(S):
 
-            rx = self.blochvecResult[0]
-            ry = self.blochvecResult[1]
+            rho = QT[s] @ dag(QT[s])
+
+            rx = rho[:,1,0] + rho[:,0,1]
+            ry = 1j*(rho[:,1,0] - rho[:,0,1])
+
+            #print('bloch vec x: ', rx.shape)
 
             eps = 1e-1 # sensitivity for detecting minima
 
@@ -539,7 +550,6 @@ class QTT:
             abs_angles = np.abs(angles)
 
             minima = ma.masked_less(abs_angles, eps).mask
-
             
             # for loop to determine suitable sensitivity in cut off
             
@@ -561,18 +571,44 @@ class QTT:
 
             sens = int(np.floor(long_count/2)) # computing sensitivity
 
-            
             # for-loop to cut off extra maxima around peaks due to diffusion "noise"
 
-            cut_minima = minima[sens:]
+            #cut_minima = minima[sens:]
             cutoff_minima = np.copy(minima)
-            cutoff_minima[:sens] = 0
 
-            for i in range(cutoff_minima.size):
+            ### debugging
+            if sens <= 1:
 
-                if cutoff_minima[i]:
+                """
+                print('angles shape ', angles.shape, 'minima shape: ', minima.shape)
+                print('sens: ', sens)
+                print('cutoff_minima shape: ', cutoff_minima.shape)
 
-                    cutoff_minima[ i + 1 : (i + sens) ] = 0
+                # could even make it so you can init the class with a designated debug folder
+                debugpath = '../data/debug/freq/trajectory_debug_freq_minima'
+                np.save(debugpath, QT[s])
+
+                bugresult = np.asarray([rx, ry])
+                debugpath2 = '../data/debug/freq/bvecXY_debug_freq_minima'
+                np.save(debugpath2, bugresult)
+
+                self.debug = True 
+                """
+                break
+            
+            else:
+
+                cutoff_minima[:sens] = 0
+
+                for i in range(cutoff_minima.size):
+
+                    if cutoff_minima[i]:
+
+                        cutoff_minima[ i + 1 : (i + sens) ] = 0
+
+
+
+
 
 
             # computing frequency
@@ -627,8 +663,8 @@ class QTT:
             self.seed += ncpu + 1 # keeping fresh seeding for all MC simulations
 
             # computing bloch vectors
-            self.rho()
-            self.blochvec()
+            #self.rho()
+            #self.blochvec()
 
             traj_freq[m] = self.freq()
         

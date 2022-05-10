@@ -8,6 +8,7 @@ def main(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon):
 
     env = 'z'
     meas_basis = 'x'
+    dt = simtime/N
     
     class_instance = QTT(env, meas_basis, theta=theta, seed=seed)
 
@@ -28,6 +29,8 @@ def main(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon):
 
 def plot(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon):
 
+    dt = simtime/N
+
     path = '../data/freq/'
     loadname = path + 'freq' + '_M_' + str(M) + '_S_' + str(S) + '_N_' + str(N) + \
         '_burnin_N_' + str(burnin) + '_dt_' + str(dt).replace('.', 'p') + \
@@ -37,7 +40,7 @@ def plot(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon):
     result = np.load(loadname + '.npy')
 
 
-    class_instance = QTT(env, meas_basis, theta=theta, seed=seed)
+    class_instance = QTT(env='z', meas_basis='x', theta=theta, seed=seed)
     temperature = class_instance.temperature
 
     omega = np.linspace(delta-ddelta, delta+ddelta, M)
@@ -60,10 +63,12 @@ def plot(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon):
     ax.set_title(title)
     fig.set_size_inches(16,9)
 
-    figname = "../figure/burnin/" + 'burninest' + '_S_' + str(S) + '_N_' + str(N) + \
+    path = '../figure/freq/'
+    figname = path + 'eps' + str(epsilon).replace('.', '') +  '_delta' + str(delta).replace('.', '') + \
+         '_freqEstimate' + '_S_' + str(S) + '_N_' + str(N) + \
         '_burnin_N_' + str(burnin) + '_dt_' + str(dt).replace('.', 'p') + \
-        '_theta_' + str(theta_value).replace('.', 'p') + '_delta_' + str(delta).replace('.', 'p') + \
-        '_eps_' + str(epsilon).replace('.', 'p') + '.png'
+        '_theta_' + str(theta).replace('.', 'p') + '_delta_' + str(delta).replace('.', 'p') + \
+        '.png'
     fig.savefig(figname, dpi=400)
 
     plt.show()
@@ -71,24 +76,46 @@ def plot(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon):
     return 0
 
 
+#def plot_bugged()
+
 
 
 ### variables
 
-M = 5
-S = 40
-N = 100
-burnin = 2000
+M = 16
+S = 400
+N = 10000
+burnin = 200000
 
-delta = 0.001
-ddelta = 0.003
-epsilon = 0.001
-theta = 0.01
+delta = 0.0025
+ddelta = 0.0015
+epsilon = 0.02
+theta = 0.05
 
-simtime = 1.0
-seed = 1948571
+simtime = 100.0
+seed = 1947571
 ncpu = 4
 psi0 = xplus
 
-main(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon)
-plot(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon)
+#main(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon)
+#plot(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon)
+
+
+
+### spamming runs:
+# (to be fair i am still not sure if the way the frequency is calculated 
+# is accurate for all epsilons)
+
+#main(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon=0.1)
+#plot(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon=0.1)
+"""
+main(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon=0.01)
+plot(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon=0.01)
+
+main(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon=0.001)
+plot(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon=0.001)
+"""
+
+
+main(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon=0.01)
+plot(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon=0.01)
