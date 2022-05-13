@@ -13,7 +13,7 @@ def f(S, N, seed):
 
     MC_traj = np.zeros((S, N, 2, 1), dtype='complex128')
 
-    for s in range(S):
+    for s in tqdm(range(S)):
 
         traj_result = np.zeros((N, 2, 1), dtype='complex128')
 
@@ -55,7 +55,7 @@ def mpTest(S, N, seed, ncpu):
     return 0
 
 # para test run
-"""
+
 ncpu = 4
 S = int(ncpu * 200)
 N = 3
@@ -70,7 +70,7 @@ fin = time.perf_counter()
 
 print('time: ', fin - start)
 
-"""
+
 
 
 def qttMC(S, N, seed):

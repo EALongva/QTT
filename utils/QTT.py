@@ -97,6 +97,11 @@ class QTT:
         self.inittime       = 0.0
         self.finaltime      = 0.0
         self.timesteps      = 1
+        self.times_result   = 0
+
+        ### burnin timesteps
+
+        self.burnin         = 0
 
         # storing results from simulations
         self.trajectory = np.zeros((1,2,1), dtype='complex128')
@@ -232,16 +237,16 @@ class QTT:
             y = 1j*(self.rhoLB[:,1,0] - self.rhoLB[:,0,1])
             z = self.rhoLB[:,0,0] - self.rhoLB[:,1,1]
 
-        self.blochvecResult = [x,y,z]
+        self.blochvecResult = [x.real, y.real, z.real]
 
-        return [x, y, z]
+        return self.blochvecResult
 
 
     def times(self):
 
-        times_result = np.linspace(self.inittime, self.finaltime, self.timesteps)
+        self.times_result = np.linspace(self.inittime, self.finaltime, self.timesteps)
 
-        return times_result
+        return self.times_result
 
 
     def MC(self, S, psi_sys_0, timesteps, finaltime, dseed=0, traj_resolution=0):
@@ -259,9 +264,12 @@ class QTT:
 
         MC_traj = np.zeros((S, timesteps, 2, 1), dtype='complex128')
 
-        for s in range(S):
+        for s in tqdm(range(S)):
 
-            MC_traj[s] = self.Traj(psi_sys_0, timesteps, finaltime, traj_resolution)
+            if self.burnin > 0:
+                burnin_state = self.Burnin(psi_sys_0, self.burnin, self.burnin*self.dt)
+
+            MC_traj[s] = self.Traj(burnin_state, timesteps, finaltime, traj_resolution)
             #self.seed += 1
 
         self.mcResult = MC_traj
@@ -294,10 +302,6 @@ class QTT:
 
         print('successfully simulated ', self.mcResult[:,0,0,0].size, ' trajectories')
 
-        return 0
-
-
-    def burnin_estimate(self):
         return 0
 
 
@@ -421,17 +425,16 @@ class QTT:
 
             Psi     = np.kron(H_newpsi_s, self.env_state) # entangling updated system state with a new environment state
 
-        self.state = H_newpsi_s
-        self.trajectory = traj_result
-
-        return traj_result
+        return H_newpsi_s
 
 
     def lindblad(self):
 
         timearray   = np.linspace(self.inittime, self.finaltime, self.timesteps)
 
-        print(timearray.shape)
+        self.times_result = timearray
+
+        #print(timearray.shape)
 
         a           = np.sqrt( (self.theta**2) / (2.0*self.dt))
 
@@ -449,7 +452,7 @@ class QTT:
         ly = 1j*(self.rhoLB[:,1,0] - self.rhoLB[:,0,1])
         lz = self.rhoLB[:,0,0] - self.rhoLB[:,1,1]
 
-        self.blochvecLB = [lx, ly, lz]
+        self.blochvecLB = [lx.real, ly.real, lz.real]
 
         return lb_result
 
@@ -638,18 +641,7 @@ class QTT:
 
         traj_freq = np.zeros(M)
 
-        """ test """
-
         omega = np.linspace(delta0-dDelta, delta0+dDelta, M)
-
-        """
-        for i in range(M):
-            Harray[i] = np.array( 0.5*delta0*sigmaz + 1j * 0.25 * epsilon * (np.exp(1j*omega[i]) * sigmam - np.exp(-1j*omega[i]) * sigmap ) , dtype='complex128' )
-        """
-        """
-        for i in range(M):
-            Harray[i] = self.system_hamiltonian(omega[i], epsilon)
-        """
 
         for m in range(M):
 
@@ -673,6 +665,39 @@ class QTT:
 
         return traj_freq
 
+
+    def freqSynchro4(self, S, N, burnin, psi0, simtime, ncpu, epsilon):
+
+        # M: number of quantum trajectory simulation to perform
+        # S: number of monte carlo simulations (trajectories per run)
+        # N: number of timesteps per trajectory
+        # dDelta: frequency difference (system frequency, ie H_0 = omega/2 * sigmaz)
+
+        M = 4   # editing function without changing too much
+
+        traj_freq   = np.zeros(M)
+        freqdata    = np.zeros((M, S, N, 2, 1), dtype='complex128')
+
+        delta = np.array([-1.5*epsilon, -0.5*epsilon, 0.5*epsilon, 1.5*epsilon])
+
+        for m in range(M):
+
+            self.system_hamiltonian(delta[m], epsilon)
+ 
+            self.burnin = burnin
+
+            self.paraMC(S, psi0, N, simtime, ncpu)
+
+            self.seed += ncpu + 1 # keeping fresh seeding for all MC simulations
+
+            freqdata[m] = self.mcResult
+
+            #traj_freq[m] = self.freq()
+        
+
+        #self.freqResult = traj_freq
+
+        return freqdata
 
 
 

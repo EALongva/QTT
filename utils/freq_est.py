@@ -76,12 +76,83 @@ def plot(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon):
     return 0
 
 
+def main4(S, N, theta, simtime, psi0, ncpu, burnin, epsilon):
+
+    # input variables
+
+    env = 'z'
+    meas_basis = 'x'
+    dt = simtime/N
+    
+    class_instance = QTT(env, meas_basis, theta=theta, seed=seed)
+
+    result = class_instance.freqSynchro4(S, N, burnin, psi0, simtime, ncpu, epsilon)
+
+    #result = class_instance.freqResult
+
+    path = '../data/freq/'
+    filename = path + 'theta' + str(theta).replace('.', '') + \
+        '_eps' + str(epsilon).replace('.', '') + '_dt' + str(dt).replace('.', '') + \
+        '_S_' + str(S) + '_N_' + str(N) + '_burnin_N_' + str(burnin) 
+
+    np.save(filename, result)
+
+    return 0
+
+def plot4(S, N, theta, simtime, psi0, ncpu, burnin, epsilon):
+
+    dt = simtime/N
+
+    path = '../data/freq/'
+    loadname = path + 'theta' + str(theta).replace('.', '') + \
+        '_eps' + str(epsilon).replace('.', '') + '_dt' + str(dt).replace('.', '') + \
+        '_S_' + str(S) + '_N_' + str(N) + '_burnin_N_' + str(burnin) 
+    
+    result = np.load(loadname + '.npy')
+
+
+    class_instance = QTT(env='z', meas_basis='x', theta=theta, seed=seed)
+    temperature = class_instance.temperature
+
+    omega = np.linspace(delta-ddelta, delta+ddelta, M)
+
+    freqdiff = result - omega
+
+    plt.style.use('ggplot')
+    fig = plt.figure()
+
+    ax = fig.add_subplot()
+    ax.plot(omega, freqdiff)
+    ax.set_xlabel(r'$\omega$')
+    ax.set_ylabel(r'$\Omega - \omega$')
+
+    title = r'Frequency difference in system $\Omega$ and external signal $\omega$, ' + \
+            r'$\theta$ = ' + str(theta) + ', temperature: ' + str(temperature) + \
+            ', \n trajectories: ' + str(int(S)) + ', timesteps: ' + str(int(N)) + \
+            ', samples: ' + str(int(M)) + '\n' + r'$H = \Delta \sigma_z + \epsilon \sigma_y$'
+
+    ax.set_title(title)
+    fig.set_size_inches(16,9)
+
+    path = '../figure/freq/'
+    figname = path + 'eps' + str(epsilon).replace('.', '') +  '_delta' + str(delta).replace('.', '') + \
+         '_freqEstimate' + '_S_' + str(S) + '_N_' + str(N) + \
+        '_burnin_N_' + str(burnin) + '_dt_' + str(dt).replace('.', 'p') + \
+        '_theta_' + str(theta).replace('.', 'p') + '_delta_' + str(delta).replace('.', 'p') + \
+        '.png'
+    fig.savefig(figname, dpi=400)
+
+    plt.show()
+
+    return 0
+
+
 #def plot_bugged()
 
 
 
 ### variables
-
+"""
 M = 16
 S = 400
 N = 10000
@@ -99,7 +170,7 @@ psi0 = xplus
 
 #main(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon)
 #plot(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon)
-
+"""
 
 
 ### spamming runs:
@@ -116,6 +187,25 @@ main(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon=0.001)
 plot(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon=0.001)
 """
 
+#main(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon=0.01)
+#plot(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon=0.01)
 
-main(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon=0.01)
-plot(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon=0.01)
+
+
+### for freqSynchro4
+
+S = 80
+N = 50000
+burnin = 100000
+
+epsilon = 0.02
+theta = 0.01
+
+dt = 0.01
+simtime = N*dt
+seed = 1947571
+ncpu = 4
+psi0 = xplus
+
+main4(S, N, theta, simtime, psi0, ncpu, burnin, epsilon)
+#plot4(S, N, theta, simtime, psi0, ncpu, burnin, epsilon)
