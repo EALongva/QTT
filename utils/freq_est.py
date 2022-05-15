@@ -26,7 +26,6 @@ def main(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon):
 
     return 0
 
-
 def plot(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon):
 
     dt = simtime/N
@@ -110,42 +109,84 @@ def plot4(S, N, theta, simtime, psi0, ncpu, burnin, epsilon):
     
     result = np.load(loadname + '.npy')
 
+    #print(result.shape)
 
-    class_instance = QTT(env='z', meas_basis='x', theta=theta, seed=seed)
-    temperature = class_instance.temperature
+    measured_freq = []
 
-    omega = np.linspace(delta-ddelta, delta+ddelta, M)
+    for MC in result:
 
-    freqdiff = result - omega
+        class_instance = QTT(env='z', meas_basis='x', theta=theta, seed=seed)
+        tmp = class_instance.fft_freq(MC, dt)
+        measured_freq.append(tmp)
 
-    plt.style.use('ggplot')
+    Omega = np.asarray(measured_freq)
+    delta = np.array([-1.5*epsilon, -0.5*epsilon, 0.5*epsilon, 1.5*epsilon])
+
+    print(Omega.shape)
+
+
+    #plt.style.use('ggplot')
     fig = plt.figure()
-
     ax = fig.add_subplot()
-    ax.plot(omega, freqdiff)
-    ax.set_xlabel(r'$\omega$')
-    ax.set_ylabel(r'$\Omega - \omega$')
 
-    title = r'Frequency difference in system $\Omega$ and external signal $\omega$, ' + \
-            r'$\theta$ = ' + str(theta) + ', temperature: ' + str(temperature) + \
-            ', \n trajectories: ' + str(int(S)) + ', timesteps: ' + str(int(N)) + \
-            ', samples: ' + str(int(M)) + '\n' + r'$H = \Delta \sigma_z + \epsilon \sigma_y$'
+    #ax.scatter(delta, Omega-delta)
+    ax.scatter(delta, Omega-delta, s=4.0)
 
-    ax.set_title(title)
+    print(Omega, delta)
+
+
+    """
+    ax1 = fig.add_subplot(221)
+    ax1.scatter(rx, ry, color='r', s=1.5)
+    ax1.set_xlabel(r'$\langle \sigma_x \rangle$')
+    ax1.set_ylabel(r'$\langle \sigma_y \rangle$')
+    ax1.set_title('z-axis')
+    """
+
+
+    ### making a polyfit to the freq points
+    """
+    polyfit = np.polyfit(delta, Omega-delta, 3)
+    xarray = np.linspace(-2.5*epsilon, 2.5*epsilon, 200)
+    poly = np.polyval(polyfit, xarray)
+
+    ax.plot(xarray, poly, ls='--', color='black', alpha=0.7)
+    ax.plot([0, 1], [1, 0], transform=ax.transAxes, ls='--', color='black', alpha=0.7)
+    """
+    
     fig.set_size_inches(16,9)
 
-    path = '../figure/freq/'
-    figname = path + 'eps' + str(epsilon).replace('.', '') +  '_delta' + str(delta).replace('.', '') + \
-         '_freqEstimate' + '_S_' + str(S) + '_N_' + str(N) + \
-        '_burnin_N_' + str(burnin) + '_dt_' + str(dt).replace('.', 'p') + \
-        '_theta_' + str(theta).replace('.', 'p') + '_delta_' + str(delta).replace('.', 'p') + \
-        '.png'
-    fig.savefig(figname, dpi=400)
+    path = '../figure/freq/freq4/'
+    figname = path + 'testplot_' + 'eps' + str(epsilon).replace('.', '') + '.png'
 
-    plt.show()
+    fig.savefig(figname, dpi=400)
 
     return 0
 
+
+def mainDeltaArray(S, N, theta, simtime, psi0, ncpu, burnin, delta, epsilon):
+
+    # input variables
+
+    env = 'z'
+    meas_basis = 'x'
+    dt = simtime/N
+    
+    class_instance = QTT(env, meas_basis, theta=theta, seed=seed)
+
+    result = class_instance.freqSimulationResult(S, N, burnin, psi0, simtime, ncpu, delta, epsilon)
+
+
+    path = '../data/freq/'
+    filename = path + 'theta' + str(theta).replace('.', '') + \
+        '_eps' + str(epsilon).replace('.', '') + '_dt' + str(dt).replace('.', '') + \
+        '_S_' + str(S) + '_N_' + str(N) + '_freqN_' + str(delta.size) + '_burninN_' + str(burnin) 
+
+    np.save(filename, result)
+
+    return 0
+
+#"{0:.5f}".format(gamma_d)
 
 #def plot_bugged()
 
@@ -170,7 +211,7 @@ psi0 = xplus
 
 #main(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon)
 #plot(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon)
-"""
+
 
 
 ### spamming runs:
@@ -179,7 +220,7 @@ psi0 = xplus
 
 #main(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon=0.1)
 #plot(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon=0.1)
-"""
+
 main(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon=0.01)
 plot(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon=0.01)
 
@@ -194,6 +235,8 @@ plot(M, S, N, theta, simtime, psi0, ncpu, burnin, delta, ddelta, epsilon=0.001)
 
 ### for freqSynchro4
 
+"""
+# run 1
 S = 80
 N = 50000
 burnin = 100000
@@ -207,5 +250,57 @@ seed = 1947571
 ncpu = 4
 psi0 = xplus
 
-main4(S, N, theta, simtime, psi0, ncpu, burnin, epsilon)
-#plot4(S, N, theta, simtime, psi0, ncpu, burnin, epsilon)
+#main4(S, N, theta, simtime, psi0, ncpu, burnin, epsilon)
+plot4(S, N, theta, simtime, psi0, ncpu, burnin, epsilon)
+"""
+"""
+# run 2
+S = 80
+N = 100000
+burnin = 100000
+
+epsilon = 0.04
+theta = 0.01
+
+dt = 0.01
+simtime = N*dt
+seed = 1947571
+ncpu = 4
+psi0 = xplus
+
+#main4(S, N, theta, simtime, psi0, ncpu, burnin, epsilon) # results ready
+plot4(S, N, theta, simtime, psi0, ncpu, burnin, epsilon)
+"""
+
+
+def delta_spacing(start, stop, M):
+
+    M_ = int((M+1)/2)
+
+    logstart = np.logspace(-abs(start), 1, M_, base=abs(start))
+    logstop = np.logspace(-abs(stop), 1, M_, base=abs(stop))
+    result = np.concatenate( [ -1 * np.flip(logstart[1:]) , logstop[1:] ])
+
+    np.set_printoptions(formatter={'float': '{: 0.3f}'.format})
+    print('delta values : \n', result, '\n')
+
+    return result
+
+
+
+S = 52
+N = 100000
+burnin = 100000
+
+epsilon = 0.04
+delta = epsilon * delta_spacing(-4.0, 4.0, 24)
+theta = 0.01
+
+dt = 0.01
+simtime = N*dt
+seed = 1947571
+ncpu = 4
+psi0 = xplus
+
+
+mainDeltaArray(S, N, theta, simtime, psi0, ncpu, burnin, delta, epsilon)

@@ -119,7 +119,6 @@ class QTT:
         
         # defining the system Hamiltonian
         if hamiltonian == 0:
-            print('Defaulting to empty hamiltonian')
             self.H          = np.zeros((2, 2), dtype='complex128')
         else:
             self.H          = hamiltonian
@@ -264,7 +263,7 @@ class QTT:
 
         MC_traj = np.zeros((S, timesteps, 2, 1), dtype='complex128')
 
-        for s in tqdm(range(S)):
+        for s in range(S):
 
             if self.burnin > 0:
                 burnin_state = self.Burnin(psi_sys_0, self.burnin, self.burnin*self.dt)
@@ -398,7 +397,7 @@ class QTT:
 
         r = 1
 
-        for n in tqdm(range( timesteps - 1 )):
+        for n in range( timesteps - 1 ):
 
             p = rnd.random()
 
@@ -526,9 +525,10 @@ class QTT:
         return psi_s
 
 
-    def freq(self):
+    def freq(self, axis=0):
 
         # master loop - computing freq for each individual traj and storing it in 'frequencies'-array
+        # axis = 0 (z-axis) axis = 1 (x-axis) axis = 2 (y-axis) 
 
         QT = self.mcResult
 
@@ -544,14 +544,23 @@ class QTT:
 
             rx = rho[:,1,0] + rho[:,0,1]
             ry = 1j*(rho[:,1,0] - rho[:,0,1])
+            rz = rho[:,0,0] - rho[:,1,1]
 
             #print('bloch vec x: ', rx.shape)
 
             eps = 1e-1 # sensitivity for detecting minima
 
-            angles = np.arctan2(ry.real, rx.real)
-            abs_angles = np.abs(angles)
+            if axis == 0:
+                angles = np.arctan2(ry.real, rx.real)
+                
+            elif axis == 1:
+                angles = np.arctan2(ry.real, rz.real)
+            
+            elif axis == 2:
+                angles = np.arctan2(rx.real, rz.real)
 
+
+            abs_angles = np.abs(angles)
             minima = ma.masked_less(abs_angles, eps).mask
             
             # for loop to determine suitable sensitivity in cut off
@@ -609,11 +618,6 @@ class QTT:
 
                         cutoff_minima[ i + 1 : (i + sens) ] = 0
 
-
-
-
-
-
             # computing frequency
 
             rotcount = np.sum(cutoff_minima)
@@ -627,6 +631,7 @@ class QTT:
         measured_frequency = np.mean(frequencies)
 
         return measured_frequency
+
 
     def freqSynchro(self, M, S, N, burnin, psi0, simtime, ncpu, delta0, dDelta, epsilon):
 
@@ -699,6 +704,70 @@ class QTT:
 
         return freqdata
 
+
+    def freqSimulationResult(self, S, N, burnin, psi0, simtime, ncpu, delta, epsilon):
+
+        # M: number of quantum trajectory simulation to perform
+        # S: number of monte carlo simulations (trajectories per run)
+        # N: number of timesteps per trajectory
+        # dDelta: frequency difference (system frequency, ie H_0 = omega/2 * sigmaz)
+
+        M           = delta.size
+        traj_freq   = np.zeros(M)
+        freqdata    = np.zeros((M, S, N, 2, 1), dtype='complex128')
+
+        for m in tqdm(range(M)):
+
+            self.system_hamiltonian(delta[m], epsilon)
+ 
+            self.burnin = burnin
+
+            self.paraMC(S, psi0, N, simtime, ncpu)
+
+            self.seed += ncpu + 1 # keeping fresh seeding for all MC simulations
+
+            freqdata[m] = self.mcResult
+
+            #traj_freq[m] = self.freq()
+        
+
+        #self.freqResult = traj_freq
+
+        return freqdata
+
+
+    def fft_angles2freq(self, angles, dt):
+
+        fft_result  = np.fft.fft(angles)
+        freq_array  = np.fft.fftfreq(angles.size, d=dt)
+        fftmeasfreq = np.abs( freq_array[ np.argmax( fft_result.imag ) ] )
+
+        return fftmeasfreq
+
+
+    def fft_freq(self, trajectories, dt):
+
+        S = trajectories[:,0,0,0].size
+
+        freq_result = np.zeros(S)
+
+        for s in tqdm(range(S)):
+
+            rho = trajectories[s] @ dag(trajectories[s])
+
+            x = ( rho[:,1,0] + rho[:,0,1] ).real
+            rx = x - np.mean(x)
+
+            z = ( rho[:,0,0] - rho[:,1,1] ).real
+            rz = z - np.mean(z)
+
+            angles = np.arctan2(rx, rz)
+
+            freq_result[s] = self.fft_angles2freq(angles, dt)
+
+        avgfreq = np.mean(freq_result)
+
+        return avgfreq
 
 
 
